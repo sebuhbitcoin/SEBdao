@@ -15,10 +15,12 @@ import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Tasty (nettestScenario, nettestScenarioOnEmulator)
 
-import Ligo.BaseDAO.Types
-import Test.Ligo.BaseDAO.Common
 import BaseDAO.ShareTest.Common hiding (createSampleProposal)
 import Ligo.BaseDAO.ConfigDesc
+import Ligo.BaseDAO.Types
+import qualified Lorentz.Contracts.BaseDAO.Types as DAO
+import Test.Ligo.BaseDAO.Common
+import Tezos.Core (unsafeMkMutez)
 import Util.Named
 
 vote :: Bool -> ProposalKey pm -> PermitProtected (VoteParam pm)
@@ -46,6 +48,8 @@ test_BaseDAO_Proposal =
           uncapsNettest $ nonUniqueProposal True (originateLigoDaoWithConfigDesc dynRecUnsafe)
       , nettestScenario "cannot propose in a non-proposal period" $
           uncapsNettest $ nonProposalPeriodProposal True (originateLigoDaoWithConfigDesc dynRecUnsafe)
+      , nettestScenario "can create proposals without exceeding gas limits" $
+          uncapsNettest $ proposalCreationUnderStorageLimit True (originateLigoDaoWithConfigDesc dynRecUnsafe)
       ]
 
   , testGroup "Voter:"
@@ -1269,3 +1273,42 @@ voteOutdatedProposal _ originateFn = do
     advanceTime (sec 25)
     call dao (Call @"Vote") [params]
       & expectCustomErrorNoArg #vOTING_PERIOD_OVER
+
+proposalCreationUnderStorageLimit
+  :: forall caps base m.
+    ( MonadNettest caps base m
+    , HasCallStack
+    )
+  => IsLorentz -> (ConfigDesc ConfigL -> OriginateFn ParameterL m) -> m ()
+proposalCreationUnderStorageLimit  _ originateFn = do
+  ((owner1, _), _, dao, admin) <- originateFn testConfigWithLongVP
+
+  -- Transfer 500 Tez to owner1
+  transfer $ TransferData (AddressResolved owner1) (unsafeMkMutez $ 1000 * 1000 * 500) DefEpName ()
+
+  let totalTokens = 100000
+  withSender (AddressResolved admin) $
+    call dao (Call @"Mint") (DAO.MintParam owner1 DAO.unfrozenTokenId totalTokens)
+
+  withSender (AddressResolved owner1) $
+    call dao (Call @"Freeze") (#amount .! totalTokens)
+
+  advanceTime (sec 600)
+
+  -- We are in hopefully in next proposal period now, and let us extend the voting period to be a 3 hours
+  withSender (AddressResolved admin) $
+    call dao (Call @"Set_voting_period") (60 * 60 * 3)
+
+  forM_ [1..500] $ \n -> do
+
+    runIO $ putTextLn $ ("Creating proposal " <> (show n))
+
+    let params = ProposeParams
+          { ppFrozenToken = 10
+          , ppProposalMetadata = proposalMetadataFromNum n
+          }
+
+    withSender (AddressResolved owner1) $ call dao (Call @"Propose") params
+
+  withSender (AddressResolved admin) $
+    call dao (Call @"Migrate") (#newAddress .! (unTAddress dao))

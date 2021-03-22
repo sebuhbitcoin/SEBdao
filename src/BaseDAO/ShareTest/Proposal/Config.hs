@@ -18,6 +18,7 @@ module BaseDAO.ShareTest.Proposal.Config
   , AllConfigDescsDefined
 
   , testConfig
+  , testConfigWithLongVP
   , configWithRejectedProposal
   , badRejectedValueConfig
   , decisionLambdaConfig
@@ -195,6 +196,13 @@ type AllConfigDescsDefined config =
 
 -- Config samples
 ------------------------------------------------------------------------
+
+testConfigWithLongVP
+  :: AreConfigDescsExt config [ConfigConstants, ProposalFrozenTokensCheck]
+  => ConfigDesc config
+testConfigWithLongVP =
+  ConfigDesc (proposalFrozenTokensMinBound 10) >>-
+  ConfigDesc configConsts{ cmMinVotingPeriod = Just 300, cmMinQuorumThreshold = Just 1 }
 
 testConfig
   :: AreConfigDescsExt config [ConfigConstants, ProposalFrozenTokensCheck]
