@@ -13,7 +13,10 @@ import Time (sec)
 
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
+import Morley.Nettest.Caps
+import Morley.Nettest.Pure
 import Morley.Nettest.Tasty (nettestScenario, nettestScenarioOnEmulator)
+import Michelson.Untyped.Entrypoints
 
 import BaseDAO.ShareTest.Common hiding (createSampleProposal)
 import Ligo.BaseDAO.ConfigDesc
@@ -49,7 +52,11 @@ test_BaseDAO_Proposal =
       , nettestScenario "cannot propose in a non-proposal period" $
           uncapsNettest $ nonProposalPeriodProposal True (originateLigoDaoWithConfigDesc dynRecUnsafe)
       , nettestScenario "can create proposals without exceeding gas limits" $
-          uncapsNettest $ proposalCreationUnderStorageLimit True (originateLigoDaoWithConfigDesc dynRecUnsafe)
+          let balFunc = (\owner1_ owner2_ ->
+                [ ((owner1_, unfrozenTokenId), 100)
+                , ((owner2_, unfrozenTokenId), 100)
+                ])
+          in uncapsNettest $ proposalCreationUnderStorageLimit True originateLigoDaoWithStorage (originateLigoDaoWithBalance' dynRecUnsafe balFunc)
       ]
 
   , testGroup "Voter:"
@@ -1275,40 +1282,57 @@ voteOutdatedProposal _ originateFn = do
       & expectCustomErrorNoArg #vOTING_PERIOD_OVER
 
 proposalCreationUnderStorageLimit
-  :: forall caps base m.
+  :: forall caps caps1 base m m1.
     ( MonadNettest caps base m
+    , MonadNettest caps1 PureM m1
+    , MonadEmulated caps1 PureM m1
+    , caps1 ~ '[NettestImpl, EmulatedImpl, SenderCap]
     , HasCallStack
     )
-  => IsLorentz -> (ConfigDesc ConfigL -> OriginateFn ParameterL m) -> m ()
-proposalCreationUnderStorageLimit  _ originateFn = do
-  ((owner1, _), _, dao, admin) <- originateFn testConfigWithLongVP
+  => IsLorentz
+  -> (FullStorage -> m (TAddress ParameterL))
+  -> ((Address, Address, Address, Address, Address) -> ConfigL -> m1 (TAddress ParameterL))
+  -> m ()
+proposalCreationUnderStorageLimit  _ originateFn originateFn2 = do
 
-  -- Transfer 500 Tez to owner1
-  transfer $ TransferData (AddressResolved owner1) (unsafeMkMutez $ 1000 * 1000 * 500) DefEpName ()
+  admin :: Address <- newAddress "admin"
+  owner1 :: Address <- newAddress "owner1"
+  operator1 :: Address <- newAddress "operator1"
+  owner2 :: Address <- newAddress "owner2"
+  operator2 :: Address <- newAddress "operator2"
 
-  let totalTokens = 100000
-  withSender (AddressResolved admin) $
-    call dao (Call @"Mint") (DAO.MintParam owner1 DAO.unfrozenTokenId totalTokens)
+  -- Get storage from emulated test
+  storage <- runIO $ interpret $ flip uncapsNettestEmulated emulatedImplIntegrational $ do
+    dao <- originateFn2 (admin, owner1, operator1, owner2, operator2) (fillConfig testConfigWithLongVP defaultConfigL)
 
-  withSender (AddressResolved owner1) $
-    call dao (Call @"Freeze") (#amount .! totalTokens)
+    let totalTokens = 100000
+    withSender (AddressResolved admin) $
+      call dao (Call @"Mint") (DAO.MintParam owner1 DAO.unfrozenTokenId totalTokens)
 
-  advanceTime (sec 600)
+    withSender (AddressResolved owner1) $
+      call dao (Call @"Freeze") (#amount .! totalTokens)
 
-  -- We are in hopefully in next proposal period now, and let us extend the voting period to be a 3 hours
-  withSender (AddressResolved admin) $
-    call dao (Call @"Set_voting_period") (60 * 60 * 3)
+    advanceTime (sec 600)
 
-  forM_ [1..500] $ \n -> do
+    forM_ [1..5] $ \n -> do
 
-    runIO $ putTextLn $ ("Creating proposal " <> (show n))
+      runIO $ putTextLn $ ("Creating proposal " <> (show n))
 
-    let params = ProposeParams
-          { ppFrozenToken = 10
-          , ppProposalMetadata = proposalMetadataFromNum n
-          }
+      let params = ProposeParams
+            { ppFrozenToken = 10
+            , ppProposalMetadata = proposalMetadataFromNum n
+            }
 
-    withSender (AddressResolved owner1) $ call dao (Call @"Propose") params
+      withSender (AddressResolved owner1) $ call dao (Call @"Propose") params
 
+    fromVal @FullStorage <$> getStorage' (addressResolved $ unTAddress dao)
+
+  dao <- originateFn storage
   withSender (AddressResolved admin) $
     call dao (Call @"Migrate") (#newAddress .! (unTAddress dao))
+    where
+      -- | Generalized version of `Morley.Nettest.Pure.scenarioToIO`
+      interpret :: (NettestImpl PureM -> PureM a) -> IO a
+      interpret scenario = do
+        env <- newIORef initEnv
+        runReaderT (unPureM (scenario nettestImplIntegrational)) env

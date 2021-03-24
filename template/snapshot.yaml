@@ -29,7 +29,7 @@ packages:
       https://gitlab.com/morley-framework/morley.git
     # ^ CI cannot use ssh, so we use http clone here
     commit:
-      28e7b38f9628cfdc0b770571bcd9c2b65e73448a # master
+      60c63126aeca5bc41521f8d2da3a0305caca8841 # master
     subdirs:
       - code/morley
       - code/lorentz

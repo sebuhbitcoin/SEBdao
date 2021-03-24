@@ -4,7 +4,9 @@
 
 module Test.Ligo.BaseDAO.Common
   ( createSampleProposal
+  , originateLigoDaoWithStorage
   , originateLigoDaoWithBalance
+  , originateLigoDaoWithBalance'
   , originateLigoDaoWithConfigDesc
   , originateLigoDao
   ) where
@@ -28,6 +30,21 @@ import Ligo.BaseDAO.ConfigDesc
 import Ligo.BaseDAO.Contract
 import Ligo.BaseDAO.Types
 
+originateLigoDaoWithStorage
+ :: forall caps base m. (MonadNettest caps base m)
+ => FullStorage
+ -> m (TAddress ParameterL)
+originateLigoDaoWithStorage fullStorage = do
+  let
+    originateData = UntypedOriginateData
+      { uodName = "BaseDAO"
+      , uodBalance = toMutez 0
+      , uodStorage = untypeValue $ toVal $ fullStorage
+      , uodContract = convertContract baseDAOContractLigo
+      }
+  daoUntyped <- originateLargeUntyped originateData
+  pure $ TAddress daoUntyped
+
 originateLigoDaoWithBalance
  :: forall caps base m. (MonadNettest caps base m)
  => ContractExtraL
@@ -41,6 +58,17 @@ originateLigoDaoWithBalance extra configL balFunc = do
   operator2 :: Address <- newAddress "operator2"
 
   admin :: Address <- newAddress "admin"
+  dao <- originateLigoDaoWithBalance' extra balFunc (admin, owner1, operator1, owner2, operator2) configL
+  pure ((owner1, operator1), (owner2, operator2), dao, admin)
+
+originateLigoDaoWithBalance'
+ :: forall caps base m. (MonadNettest caps base m)
+ => ContractExtraL
+ -> (Address -> Address -> [(LedgerKey, LedgerValue)])
+ -> (Address, Address, Address, Address, Address)
+ -> ConfigL
+ -> m (TAddress ParameterL)
+originateLigoDaoWithBalance' extra balFunc (admin, owner1, operator1, owner2, operator2) configL = do
 
   let bal = BigMap $ M.fromList $ balFunc owner1 owner2
   let operators = BigMap $ M.fromSet (const ()) $ S.fromList
@@ -76,9 +104,7 @@ originateLigoDaoWithBalance extra configL balFunc = do
       , uodContract = convertContract baseDAOContractLigo
       }
   daoUntyped <- originateLargeUntyped originateData
-  let dao = TAddress @ParameterL daoUntyped
-
-  pure ((owner1, operator1), (owner2, operator2), dao, admin)
+  pure $ TAddress @ParameterL daoUntyped
 
 originateLigoDaoWithConfig
  :: forall caps base m. (MonadNettest caps base m)
