@@ -1314,7 +1314,7 @@ proposalCreationUnderStorageLimit  _ originateFn originateFn2 = do
 
     advanceTime (sec 600)
 
-    forM_ [1..5] $ \n -> do
+    forM_ [1..500] $ \n -> do
 
       runIO $ putTextLn $ ("Creating proposal " <> (show n))
 
