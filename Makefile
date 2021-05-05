@@ -66,12 +66,12 @@ ifeq ($(OPTIMIZE), true)
 endif
 	#
 
-$(OUT)/trivialDAO_storage.tz : admin_address = tz1QozfhaUW4wLnohDo6yiBUmh7cPCSXE9Af
-$(OUT)/trivialDAO_storage.tz : governance_token_address = KT1RdwP8XJPjFyGoUsXFQnQo1yNm6gUqVdp5
+$(OUT)/trivialDAO_storage.tz : admin_address = tz1dXpsNAWLHVYNWSqhrHCHT6wh6L1fKZfo1
+$(OUT)/trivialDAO_storage.tz : governance_token_address = KT1981tPmXh4KrUQKZpQKb55kREX7QGJcF3E
 $(OUT)/trivialDAO_storage.tz : governance_token_id = 0n
 $(OUT)/trivialDAO_storage.tz : now_val = Tezos.now
 $(OUT)/trivialDAO_storage.tz : metadata_map = (Big_map.empty : metadata_map)
-$(OUT)/trivialDAO_storage.tz : fixed_proposal_fee_in_token = 0n
+$(OUT)/trivialDAO_storage.tz : fixed_proposal_fee_in_token = 100n
 $(OUT)/trivialDAO_storage.tz : ledger = ([] : ledger_list)
 $(OUT)/trivialDAO_storage.tz : quorum_threshold = {numerator = 1n; denominator = 10n}
 $(OUT)/trivialDAO_storage.tz : voting_period = 11n
@@ -103,8 +103,8 @@ $(OUT)/trivialDAO_storage.tz: src/**
 	# See "$(OUT)/trivialDAO_storage.tz" for compilation result  #
 	#
 
-$(OUT)/registryDAO_storage.tz : admin_address = tz1QozfhaUW4wLnohDo6yiBUmh7cPCSXE9Af
-$(OUT)/registryDAO_storage.tz : governance_token_address = KT1RdwP8XJPjFyGoUsXFQnQo1yNm6gUqVdp5
+$(OUT)/registryDAO_storage.tz : admin_address = tz1dXpsNAWLHVYNWSqhrHCHT6wh6L1fKZfo1
+$(OUT)/registryDAO_storage.tz : governance_token_address = KT1981tPmXh4KrUQKZpQKb55kREX7QGJcF3E
 $(OUT)/registryDAO_storage.tz : governance_token_id = 0n
 $(OUT)/registryDAO_storage.tz : frozen_scale_value = 1n
 $(OUT)/registryDAO_storage.tz : frozen_extra_value = 0n
@@ -155,8 +155,8 @@ $(OUT)/registryDAO_storage.tz: src/**
 	# See "$(OUT)/registryDAO_storage.tz" for compilation result #
 	#
 
-$(OUT)/treasuryDAO_storage.tz : admin_address = tz1QozfhaUW4wLnohDo6yiBUmh7cPCSXE9Af
-$(OUT)/treasuryDAO_storage.tz : governance_token_address = KT1RdwP8XJPjFyGoUsXFQnQo1yNm6gUqVdp5
+$(OUT)/treasuryDAO_storage.tz : admin_address = tz1dXpsNAWLHVYNWSqhrHCHT6wh6L1fKZfo1
+$(OUT)/treasuryDAO_storage.tz : governance_token_address = KT1981tPmXh4KrUQKZpQKb55kREX7QGJcF3E
 $(OUT)/treasuryDAO_storage.tz : governance_token_id = 0n
 $(OUT)/treasuryDAO_storage.tz : frozen_scale_value = 0n
 $(OUT)/treasuryDAO_storage.tz : frozen_extra_value = 0n
@@ -172,6 +172,7 @@ $(OUT)/treasuryDAO_storage.tz : ledger = ([] : ledger_list)
 $(OUT)/treasuryDAO_storage.tz : quorum_threshold = {numerator = 1n; denominator = 10n}
 $(OUT)/treasuryDAO_storage.tz : voting_period = 11n
 $(OUT)/treasuryDAO_storage.tz: src/**
+
 	# ============== Compiling TreasuryDAO storage ============== #
 	mkdir -p $(OUT)
 	$(BUILD_STORAGE) --output-file $(OUT)/treasuryDAO_storage.tz \
@@ -209,8 +210,8 @@ $(OUT)/treasuryDAO_storage.tz: src/**
 	#
 
 originate : storage = $(OUT)/trivialDAO_storage.tz
-originate : admin_address = tz1QozfhaUW4wLnohDo6yiBUmh7cPCSXE9Af
-originate : contract_name = baseDAO
+originate : admin_address = tz1dXpsNAWLHVYNWSqhrHCHT6wh6L1fKZfo1
+originate : contract_name = SEBdao
 originate: $(OUT)/baseDAO.tz
 	# ============== Originating DAO with $(storage) ============== #
 	@$(ORIGINATE) --contract $(OUT)/baseDAO.tz --from "$(admin_address)" \
